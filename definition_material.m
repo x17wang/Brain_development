@@ -1,4 +1,4 @@
-function [W,E,v,Ft,G]=definition_material(V,V0,El,Fb,dt,n,Vtold,G)
+function [W,E,v,Ft]=definition_material(V,V0,El,Fb,dt,n,Vtold,G)
 
 %% Determine at
 t = -0.3+dt*n; % time to calculate at

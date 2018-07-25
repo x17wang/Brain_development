@@ -10,28 +10,130 @@ markerSize=10;
 edgeColor=0.25*ones(1,3);
 edgeWidth=1.5;
 
-%% Path names
+%% path names
 filePath=mfilename('fullpath');
 savePath=fullfile(fileparts(fileparts(filePath)),'GibbonCode','data','temp');
-% modelName=fullfile(savePath,'sphere_pos');
-modelName=fullfile(savePath,'sphere2');
+% modelName=fullfile(savePath,'sphere_new');
+modelName=fullfile(savePath,'sphere7');
+
+% build a sphere surface
+% r1=1; %Outer sphere radius
+% numRefine=3; %Number of refinement steps from icosahedron
+% faceBoundMarker=3; %Face marker for outer sphere
 % 
-% defaultFolder = fileparts(fileparts(mfilename('fullpath')));
-% pathName=fullfile(defaultFolder,'GibbonCode','data','STL');
-% fileName=fullfile(pathName,'brain_decimated.stl');
-[A] = textread('/home/xiaoyu/Desktop/MATLAB/GibbonCode/data/MESH/sphere2.mesh');
-% V = A(2:84,1:3);
-% El = A(86:266,2:5);
-% Fb = A(268:end,2:4);
-V = A(2:35590,1:3);
-El = A(35592:229127,2:5);
-Fb = A(229129:end,2:4);
+% [Fq,Vq,~]=geoSphere(numRefine,r1);
+% 
+% faceBoundaryMarker_q=faceBoundMarker*ones(size(Fq,1),1); %Create boundary markers for faces
+% 
+% hf=cFigure;
+% title('Surface models','FontSize',fontSize);
+% xlabel('X','FontSize',fontSize); ylabel('Y','FontSize',fontSize); zlabel('Z','FontSize',fontSize);
+% hold on;
+% 
+% patch('Faces',Fq,'Vertices',Vq,'FaceColor','flat','CData',faceBoundaryMarker_q,'FaceAlpha',faceAlpha1,'lineWidth',edgeWidth,'edgeColor',edgeColor);
+% [hp]=patchNormPlot(Fq,Vq,0.25);
+% 
+% colormap(autumn(2));
+% colorbar;
+% camlight headlight;
+% set(gca,'FontSize',fontSize);
+% view(3); axis tight;  axis equal;  grid on;
+% 
+% %CREATING A SOLID TETRAHEDRAL MESH USING TETGEN
+% % %% CREATING THE INPUT STRUCTURE
+% [regionA]=tetVolMeanEst(Fq,Vq); %Volume for regular tets
+% 
+% stringOpt='-pq1.2AaYQ';
+% 
+% inputStruct.stringOpt=stringOpt;
+% inputStruct.Faces=Fq;
+% inputStruct.Nodes=Vq;
+% inputStruct.holePoints=[];
+% inputStruct.faceBoundaryMarker=faceBoundaryMarker_q; %Face boundary markers
+% inputStruct.regionPoints=[0 0 0]; %region points
+% inputStruct.regionA=regionA;
+% inputStruct.minRegionMarker=2; %Minimum region marker
+% inputStruct.modelName=modelName;
+% 
+% %% Mesh model using tetrahedral elements using tetGen
+% [meshOutput]=runTetGen(inputStruct); %Run tetGen
+% 
+% Fb=meshOutput.facesBoundary;
+% Cb=meshOutput.boundaryMarker;
+% V=meshOutput.nodes;
+% CE=meshOutput.elementMaterialID;
+% El=meshOutput.elements;
+% 
+% meshView(meshOutput,[]);
+
+defaultFolder = fileparts(fileparts(mfilename('fullpath')));
+pathName=fullfile(defaultFolder,'GibbonCode','data','STL');
+fileName=fullfile(pathName,'brain_decimated.stl');
+[A] = textread('/home/xiaoyu/Desktop/MATLAB/GibbonCode/data/MESH/sphere7.mesh');
+
+V = A(2:A(1,1)+1,1:3);
+El = A(A(1,1)+3:A(A(1,1)+2,1)+A(1,1)+2,2:5);
+Fb = A(A(A(1,1)+2,1)+A(1,1)+4:end,2:4);
+
 % [stlStruct] = import_STL(fileName);
 % 
 % F=stlStruct.solidFaces{1};
 % V=stlStruct.solidVertices{1};
-% 
-% 
+
+% find center of mass and dimension of the mesh
+maxx = -1e9;
+minx = 1e9;
+maxy = -1e9;
+miny = 1e9;
+maxz = -1e9;
+minz = 1e9;
+cog = zeros(1,3);
+for i = 1:size(V,1)
+    maxx = max(maxx, V(i,1)); minx = min(minx,V(i,1));
+    maxy = max(maxy, V(i,2)); miny = min(miny,V(i,2));
+    maxz = max(maxz, V(i,3)); minz = min(minz,V(i,3));
+    cog = cog + V(i,:);
+end;
+cog = cog/size(V,1);
+maxd = max(max(max(abs(maxx-cog(1)), abs(minx-cog(1))), max(abs(maxy-cog(2)), abs(miny-cog(2)))), max(abs(maxz-cog(3)), abs(minz-cog(3))));
+
+% change mesh information by values normalized 
+for i = 1:size(V,1)
+    V(i,1) = (V(i,1) - cog(1))/maxd;
+    V(i,2) = (V(i,2) - cog(2))/maxd;
+    V(i,3) = -(V(i,3) - cog(3))/maxd;
+end;
+
+% selecting half of the model to see interior
+% Y=V(:,2); YE=mean(Y(El),2);
+% logicCutView=YE>mean(Y);
+% [Fs,Cs]=element2patch(El(logicCutView,:),CE(logicCutView),'tet4');
+
+% cut view of tetrahedral mesh model
+% cFigure;
+% hold on;
+% title('Cut view of tetrahedral mesh model','FontSize',fontSize);
+% gpatch(Fb,V,0.5*ones(1,3),'none',faceAlpha1);
+% gpatch(Fs,V,Cs,'k',faceAlpha2);
+% plotV(V(unique(Fs(:)),:),'k.','MarkerSize',markerSize);
+% camlight headlight;
+% axisGeom(gca,fontSize);
+% axis off;Oui
+% colormap(autumn);
+% drawnow;
+
+% the outer surface normals
+% hf=cFigure;
+% title('The outer surface normals','FontSize',fontSize);
+% xlabel('X','FontSize',fontSize); ylabel('Y','FontSize',fontSize); zlabel('Z','FontSize',fontSize);
+% hold on;
+% patch('Faces',Fb,'Vertices',V,'FaceColor','flat','CData',Cb,'FaceAlpha',0.5);
+% [hp]=patchNormPlot(Fb,V,0.5); 
+% colormap jet; colorbar;
+% camlight headlight;
+% set(gca,'FontSize',fontSize);
+% view(3); axis tight;  axis equal;  grid on;
+
 % % Merging nodes (nodes are not merged in stl)
 % [~,ind1,ind2]=unique(pround(V,5),'rows');
 % V=V(ind1,:);
@@ -43,7 +145,7 @@ gpatch(Fb,V,patchColor,'k',faceAlpha1);
 camlight headlight;
 axisGeom(gca,fontSize);
 drawnow;
-
+% 
 % faceBoundaryMarker=ones(size(F,1),1);
 % 
 % [V_regions]=getInnerPoint(F,V);
@@ -183,6 +285,7 @@ drawnow;
 % forceMagnitude=[1 1 1];
 % bcPrescribeList = unique(Fb(:));
 % bcPrescribeMagnitude = forceMagnitude(ones(1,numel(bcPrescribeList)),:);
+
 % Build a quadrilateral surface
 % boxDim=[2 5 2];  %Dimensions
 % boxEl=[2 3 2]; %Number of elements
@@ -191,7 +294,7 @@ drawnow;
 % [V_regions]=getInnerPoint(Fq,Vq); % Define region points
 % V_holes=[]; % Define hole points
 % 
-% % Plotting surface models
+% % PlottVing surface models
 % hf=cFigure;
 % title('Surface models','FontSize',fontSize);
 % xlabel('X','FontSize',fontSize); ylabel('Y','FontSize',fontSize); zlabel('Z','FontSize',fontSize);
@@ -258,26 +361,27 @@ drawnow;
 % set(gca,'FontSize',fontSize);
 % view(3); axis tight;  axis equal;  grid on;
 
-%Define BC's
-% forceMagnitude=[1 1 1];
+% Define BC's
+bcPrescribeList=[1:size(V,1)]';
 
 %% loop for iterations of matlab and steps of FEBio
 p=1;  % total time of deformation
-n=20; % number of time step 0
 % dt = 0.050*sqrt(0.0025*0.01*0.01/5.0); %time step size
-dt=p/n; %time step size
+n=10; % number of time step 
+dt=1/n; %time step size
 t=1; %for creating the files.feb,.log,.xplt
 V0=V;
 Vtold=zeros(size(unique(Fb),1),3);
 P=cell(1,n);
-G = cell(1,size(El,1));
+G=cell(1,size(El,1));
 for i = 1:size(El,1)
     G{i}= [1 0 0;0 1 0;0 0 1];
 end;
 % E=cell(1,n);
 % v=cell(1,n);
+GG=cell(1,n);
 for i = 1:n
-    [W,E,v,Ft]=definition_material(V,V0,El,Fb,dt,i,Vtold,G);
+    [W,E,v,Ft,GG{i}]=definition_material(V,V0,El,Fb,dt,i,Vtold,G);
     % Calcul of the positions of centre-of-gravity of tetrahedrons for plotting
 % the normals of tetrahedrons
 %     for i = 1:size(El,1)
@@ -305,12 +409,11 @@ for i = 1:n
 %     set(gca,'FontSize',fontSize);
 %     view(3); axis tight;  axis equal;  grid on;% a = [];
     %Define BC's
-    for j = 1:size(V,1)
+    parfor j = 1:size(V,1)
 %         forceMagnitude=[1 1 1];
         forceMagnitude=[Ft(1,j) Ft(2,j) Ft(3,j)];
 %         bcPrescribeList = unique(Fb(:));
 %     bcPrescribeMagnitude = forceMagnitude(ones(1,numel(bcPrescribeList)),:);
-        bcPrescribeList=[1:size(V,1)]';
         bcPrescribeMagnitude(j,:)=forceMagnitude(:);
     end
     [V]=runFEBio(V,El,E,v,W,t,modelName,bcPrescribeList,bcPrescribeMagnitude);

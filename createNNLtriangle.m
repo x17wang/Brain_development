@@ -4,7 +4,7 @@ NNLt = cell(1,nsn);
 mx = max(1,int8(bw/mw));
 head(1,1:mx*mx*mx) = -1;
 list = zeros(1,size(Fb,1));
-for i =1:size(Fb,1)
+for i = 1:size(Fb,1)
     cog = (V(Fb(i,1),:)+V(Fb(i,2),:)+V(Fb(i,3),:))/3.0;
     xa = int8((cog(1)+0.5*bw)/bw*mx);
     ya = int8((cog(2)+0.5*bw)/bw*mx);
@@ -14,7 +14,7 @@ for i =1:size(Fb,1)
     head(1,tmp) = i;
 end;
 
-for i = 1:nsn
+parfor i = 1:nsn
     pt = sn(i);
     xa = int8((V(pt,1)+0.5*bw)/bw*mx);
     ya = int8((V(pt,2)+0.5*bw)/bw*mx);
@@ -27,7 +27,7 @@ for i = 1:nsn
                     if pt~=Fb(tri,1)&&pt~=Fb(tri,2)&&pt~=Fb(tri,3)
                         [clp,u,v,w] = closestPointTriangle(V(pt,:), V(Fb(tri,1),:), V(Fb(tri,2),:), V(Fb(tri,3),:));
                         if length(clp - V(pt,:)) < hs
-                            NNLt{1,i}=[NNLt{1,i},tri];
+                            NNLt{i}=[NNLt{i},tri];
                         end;
                     end;
                     tri = list(1,tri);
@@ -36,4 +36,5 @@ for i = 1:nsn
         end;
     end;
 end;
+          
           

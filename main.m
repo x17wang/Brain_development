@@ -14,11 +14,11 @@ edgeWidth=1.5;
 filePath=mfilename('fullpath');
 savePath=fullfile(fileparts(fileparts(filePath)),'GibbonCode','data','temp');
 % modelName=fullfile(savePath,'sphere_new');
-modelName=fullfile(savePath,'sphere7');
+modelName=fullfile(savePath,'sphere5');
 
 % build a sphere surface
 % r1=1; %Outer sphere radius
-% numRefine=3; %Number of refinement steps from icosahedron
+% numRefine=2; %Number of refinement steps from icosahedron
 % faceBoundMarker=3; %Face marker for outer sphere
 % 
 % [Fq,Vq,~]=geoSphere(numRefine,r1);
@@ -63,13 +63,13 @@ modelName=fullfile(savePath,'sphere7');
 % V=meshOutput.nodes;
 % CE=meshOutput.elementMaterialID;
 % El=meshOutput.elements;
-% 
+
 % meshView(meshOutput,[]);
 
-defaultFolder = fileparts(fileparts(mfilename('fullpath')));
-pathName=fullfile(defaultFolder,'GibbonCode','data','STL');
-fileName=fullfile(pathName,'brain_decimated.stl');
-[A] = textread('/home/xiaoyu/Desktop/MATLAB/GibbonCode/data/MESH/sphere7.mesh');
+% defaultFolder = fileparts(fileparts(mfilename('fullpath')));
+% pathName=fullfile(defaultFolder,'GibbonCode','data','STL');
+% fileName=fullfile(pathName,'brain_decimated.stl');
+[A] = textread('/home/xiaoyu/Desktop/MATLAB/GibbonCode/data/MESH/sphere5.mesh');
 
 V = A(2:A(1,1)+1,1:3);
 El = A(A(1,1)+3:A(A(1,1)+2,1)+A(1,1)+2,2:5);
@@ -361,18 +361,60 @@ drawnow;
 % set(gca,'FontSize',fontSize);
 % view(3); axis tight;  axis equal;  grid on;
 
+% Mark non-growing areas
+V0=V;
+gr=zeros(1,size(V,1));
+parfor i=1:size(V,1)
+    qp = V0(i,:);
+    X = [(qp(1)+0.1)*0.714, qp(2), qp(3)-0.05];
+    rqp = length(X);
+    if rqp < 0.6
+        gr(i) = max(1.0-10.0*(0.6-rqp),0.0);
+    else
+        gr(i) = 1.0;
+    end
+end    
+
+%% Determine surface nodes and index maps
+ns(size(V,1))=0;
+parfor j=1:size(V,1)
+    for i=1:size(Fb,1)
+        for k=1:size(Fb,2)
+            if j == Fb(i,k) 
+                ns(j)=1;
+            end
+        end
+    end
+end
+
+snb(size(V,1))=0;p=1;sn=0;
+for i=1:size(V,1)
+   if ns(i)==1
+        sn(p)=i;   % surface to full mesh
+        snb(i)=p;  % full mesh to surface
+        p=p+1;
+   end
+end
+
+nsn=length(sn); % number of surface nodes
+
 % Define BC's
 bcPrescribeList=[1:size(V,1)]';
 
 %% loop for iterations of matlab and steps of FEBio
 p=1;  % total time of deformation
-% dt = 0.050*sqrt(0.0025*0.01*0.01/5.0); %time step size
-n=10; % number of time step 
-dt=1/n; %time step size
-t=1; %for creating the files.feb,.log,.xplt
-V0=V;
+n=11000;
+t=-0.25;
+dt=0.050*sqrt(0.0025*0.01*0.01/5.0); %time step size
+% dt=1/n;
+% n=round(1/dt); % number of time step 
+% dt=1/n; %time step size
+d=1; %for creating the files.feb,.log,.xplt
+Vt=zeros(3,size(V,1));
 Vtold=zeros(size(unique(Fb),1),3);
-P=cell(1,n);
+NNLt=cell(1,nsn);
+ub=0; vb=0; wb=0;
+
 G=cell(1,size(El,1));
 for i = 1:size(El,1)
     G{i}= [1 0 0;0 1 0;0 0 1];
@@ -380,8 +422,12 @@ end;
 % E=cell(1,n);
 % v=cell(1,n);
 GG=cell(1,n);
+Ftt=cell(1,n);
+Fc=cell(1,n);
 for i = 1:n
-    [W,E,v,Ft,GG{i}]=definition_material(V,V0,El,Fb,dt,i,Vtold,G);
+    [W,E,v,Ft,Ftt{i},G,csn{i},d2s{i}]=definition_material(V,V0,El,Fb,dt,Vtold,G,t,Vt,sn,snb,gr,NNLt,ub,vb,wb,nsn);
+    Fc{i}=Ft;
+    GG{i}=G;
     % Calcul of the positions of centre-of-gravity of tetrahedrons for plotting
 % the normals of tetrahedrons
 %     for i = 1:size(El,1)
@@ -405,7 +451,7 @@ for i = 1:n
 % %     [hp]=patchNormPlot(Fb,V,0.5);
 %     colormap(autumn(2));
 %     colorbar;
-%     camlight headlight;
+%      headlight;
 %     set(gca,'FontSize',fontSize);
 %     view(3); axis tight;  axis equal;  grid on;% a = [];
     %Define BC's
@@ -416,6 +462,6 @@ for i = 1:n
 %     bcPrescribeMagnitude = forceMagnitude(ones(1,numel(bcPrescribeList)),:);
         bcPrescribeMagnitude(j,:)=forceMagnitude(:);
     end
-    [V]=runFEBio(V,El,E,v,W,t,modelName,bcPrescribeList,bcPrescribeMagnitude);
-    t=t+1;
+    [V]=runFEBio(V,El,E,v,W,d,modelName,bcPrescribeList,bcPrescribeMagnitude);
+    d=d+1;
 end

@@ -14,7 +14,7 @@ edgeWidth=1.5;
 filePath=mfilename('fullpath');
 savePath=fullfile(fileparts(fileparts(filePath)),'GibbonCode','data','temp');
 % modelName=fullfile(savePath,'sphere_new');
-modelName=fullfile(savePath,'sphere5');
+modelName=fullfile(savePath,'sphere7');
 
 % build a sphere surface
 % r1=1; %Outer sphere radius
@@ -69,7 +69,7 @@ modelName=fullfile(savePath,'sphere5');
 % defaultFolder = fileparts(fileparts(mfilename('fullpath')));
 % pathName=fullfile(defaultFolder,'GibbonCode','data','STL');
 % fileName=fullfile(pathName,'brain_decimated.stl');
-[A] = textread('/home/xiaoyu/Desktop/MATLAB/GibbonCode/data/MESH/sphere5.mesh');
+[A] = textread('/home/xiaoyu/Desktop/MATLAB/GibbonCode/data/MESH/sphere7.mesh');
 
 V = A(2:A(1,1)+1,1:3);
 El = A(A(1,1)+3:A(A(1,1)+2,1)+A(1,1)+2,2:5);
@@ -396,14 +396,73 @@ for i=1:size(V,1)
    end
 end
 
+% Normal vector of the surface points
+no=cell(1,size(sn,2)); % all the points of surface
+n1=cell(1,size(sn,2));
+for i=1:size(Fb,1)
+    for j=1:size(Fb,2)
+        no{snb(Fb(i,j))}= [0 0 0];
+    end
+end
+
+% No=cell(1,size(sn,2));
+for i=1:size(Fb,1)
+%    for j=1:size(Fb,2)
+   No = cross(V0(Fb(i,2),:)-V0(Fb(i,1),:), V0(Fb(i,3),:)-V0(Fb(i,1),:));
+   no{snb(Fb(i,1))}= no{snb(Fb(i,1))}+No;       % Normal for each surface point
+   no{snb(Fb(i,2))}= no{snb(Fb(i,2))}+No; 
+   no{snb(Fb(i,3))}= no{snb(Fb(i,3))}+No; 
+   %        n1{snb(Fb(i,j))}= no{snb(Fb(i,j))}./norm(no{snb(Fb(i,j))});
+%    end                                                           %Attention: index is surface index = snb(full mesh index)
+end
+
+parfor i=1:size(sn,2)
+    n1{i}= no{i}/norm(no{i});
+end
+
 nsn=length(sn); % number of surface nodes
+% Find nearst point
+csn=zeros(1,size(V0,1));
+for i=1:size(V0,1)
+    d2min=1e9;
+    for j=1:nsn     %all the surface points,j:surface index B{i}(isnan(B{i}) | isinf(B{i}))=1;
+        d2=dot((V0(sn(j),:)-V0(i,:)),(V0(sn(j),:)-V0(i,:)));        %calcul distance 
+        if d2<d2min
+            d2min=d2;
+            q=j;
+        end
+    end
+    csn(i)=q;
+    d2s(i)=sqrt(d2min);
+%     else
+%         csn(i)=snb(i);      % the nearst point is itself
+%         d2s(i)=0;           % distance = 0
+%     end    
+end
+
+
+% Find the normals for each tetrahedron
+NL=cell(size(El,1),4);
+NL_TOTAL=cell(size(El,1),1);
+for i = 1:size(El,1)
+    NE(i,1) = csn(El(i,1));
+    NE(i,2) = csn(El(i,2));
+    NE(i,3) = csn(El(i,3));
+    NE(i,4) = csn(El(i,4));
+    NL{i,1} = n1{NE(i,1)};
+    NL{i,2} = n1{NE(i,2)};
+    NL{i,3} = n1{NE(i,3)};
+    NL{i,4} = n1{NE(i,4)};
+    NL_TOTAL{i,1} = NL{i,1}+NL{i,2}+NL{i,3}+NL{i,4};
+    NL_TOTAL{i,1} = NL_TOTAL{i,1}/norm(NL_TOTAL{i,1});
+end
 
 % Define BC's
 bcPrescribeList=[1:size(V,1)]';
 
 %% loop for iterations of matlab and steps of FEBio
 p=1;  % total time of deformation
-n=11000;
+n=3;
 t=-0.25;
 dt=0.050*sqrt(0.0025*0.01*0.01/5.0); %time step size
 % dt=1/n;
@@ -425,7 +484,7 @@ GG=cell(1,n);
 Ftt=cell(1,n);
 Fc=cell(1,n);
 for i = 1:n
-    [W,E,v,Ft,Ftt{i},G,csn{i},d2s{i}]=definition_material(V,V0,El,Fb,dt,Vtold,G,t,Vt,sn,snb,gr,NNLt,ub,vb,wb,nsn);
+    [W,E,v,Ft,Ftt{i},G]=definition_material(V,V0,El,Fb,dt,Vtold,G,t,Vt,sn,gr,NNLt,ub,vb,wb,d2s,NL_TOTAL,nsn);
     Fc{i}=Ft;
     GG{i}=G;
     % Calcul of the positions of centre-of-gravity of tetrahedrons for plotting

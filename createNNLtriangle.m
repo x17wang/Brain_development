@@ -37,5 +37,3 @@ parfor i = 1:nsn
     end;
 end;
           
-          
-          

@@ -1,68 +1,34 @@
-function [W,E,v,Ft]=definition_material(V,V0,El,Fb,dt,n,Vtold,G)
+function [W,E,v,Ft,Ftt,G,csn,d2s]=definition_material(V,V0,El,Fb,dt,Vtold,G,t,Vt,sn,snb,gr,NNLt,ub,vb,wb,nsn)
 
 %% Determine at
-t = -0.3+dt*n; % time to calculate at
-at = 1.85+7.4*t;% growth tensor changes with at changes as time goes on
-H = 0.041+0.01*t; % Un deformed thickness of the gray matter
+% t = -0.35+dt*n; % time to calculate at
+gamma = 0.5;
+rho = 0.0025;
+at = 1.7+7.4*t;% growth tensor changes with at changes as time goes on
+H = 0.031+0.01*t; % Un deformed thickness of the gray matter
 % if t>=0.0
 %     at = 1.85-1.85*t;
 %     H = 0.042+0.042*t;
 % end;
 % H = 0.041 + 0.01*t;
-%%
-% Mark non-growing areas
-gr = zeros(1,size(V,1));
-parfor i=1:size(V,1)
-    qp = V0(i,:);
-    X = [(qp(1)+0.1)*0.714, qp(2), qp(3)-0.05];
-    rqp = length(X);
-    if rqp < 0.6
-        gr(i) = max(1.0-10.0*(0.6-rqp),0.0);
-    else
-        gr(i) = 1.0;
-    end
-end    
 
-%% Determine surface nodes and index maps
-nsn(size(V,1))=0;
-for i=1:size(Fb,1)
-    for k=1:size(Fb,2)
-        parfor j=1:size(V,1)
-        if j == Fb(i,k) 
-            nsn(j)=1;
-        end
-        end
-    end
-end
-
-snb(size(V,1))=0;p=1;sn=0;
-for i=1:size(V,1)
-   if nsn(i)==1
-        sn(p)=i;   % surface to full mesh
-        snb(i)=p;  % full mesh to surface
-        p=p+1;
-   end
-end
-
-nsn=length(sn);
 % Find nearst point
 csn=zeros(1,size(V,1));
-parfor i=1:size(V,1)
-    if snb(i)==0
-        d2min=1e9;
-        for j=1:nsn      %all the surface points,j:surface index B{i}(isnan(B{i}) | isinf(B{i}))=1;
-            d2=dot((V(i,:)-V(sn(j),:)),(V(i,:)-V(sn(j),:)));        %calcul distance 
-            if d2<d2min
-                d2min=d2;
-                q=j;
-            end
+for i=1:size(V,1)
+    d2min=1e9;
+    for j=1:nsn     %all the surface points,j:surface index B{i}(isnan(B{i}) | isinf(B{i}))=1;
+        d2=dot((V(sn(j),:)-V(i,:)),(V(sn(j),:)-V(i,:)));        %calcul distance 
+        if d2<d2min
+            d2min=d2;
+            q=j;
         end
-        csn(i)=q;
-        d2s(i)=sqrt(d2min);
-    else
-        csn(i)=snb(i);      % the nearst point is itself
-        d2s(i)=0;           % distance = 0
-    end    
+    end
+    csn(i)=q;
+    d2s(i)=sqrt(d2min);
+%     else
+%         csn(i)=snb(i);      % the nearst point is itself
+%         d2s(i)=0;           % distance = 0
+%     end    
 end
 
 % Normal vector of the surface points
@@ -70,17 +36,19 @@ no=cell(1,size(sn,2)); % all the points of surface
 n1=cell(1,size(sn,2));
 for i=1:size(Fb,1)
     for j=1:size(Fb,2)
-        no{1,snb(Fb(i,j))}= [0 0 0];
+        no{snb(Fb(i,j))}= [0 0 0];
     end
 end
 
-No=cell(1,size(sn,2));
+% No=cell(1,size(sn,2));
 for i=1:size(Fb,1)
-   for j=1:size(Fb,2)
-       No{1,snb(Fb(i,j))}= cross(V(Fb(i,3),:)-V(Fb(i,1),:), V(Fb(i,2),:)-V(Fb(i,1),:));
-       no{snb(Fb(i,j))}= no{snb(Fb(i,j))}+No{1,snb(Fb(i,j))};        % Normal for each surface point
-%        n1{snb(Fb(i,j))}= no{snb(Fb(i,j))}./norm(no{snb(Fb(i,j))});
-   end                                                           %Attention: index is surface index = snb(full mesh index)
+%    for j=1:size(Fb,2)
+   No = cross(V0(Fb(i,2),:)-V0(Fb(i,1),:), V0(Fb(i,3),:)-V0(Fb(i,1),:));
+   no{snb(Fb(i,1))}= no{snb(Fb(i,1))}+No;       % Normal for each surface point
+   no{snb(Fb(i,2))}= no{snb(Fb(i,2))}+No; 
+   no{snb(Fb(i,3))}= no{snb(Fb(i,3))}+No; 
+   %        n1{snb(Fb(i,j))}= no{snb(Fb(i,j))}./norm(no{snb(Fb(i,j))});
+%    end                                                           %Attention: index is surface index = snb(full mesh index)
 end
 
 parfor i=1:size(sn,2)
@@ -150,8 +118,8 @@ parfor i = 1:nsn
     maxDist = max(maxDist, length(V(sn(i),:) - Vtold(i,:)));
 end;
 if maxDist > 0.5*(hs-hc)
-    [NNLt] = createNNLtriangle(V, Fb, sn, nsn, hs, bw, mw);
-    parfor i = 1:nsn
+    [NNLt] = createNNLtriangle(NNLt, V, Fb, sn, nsn, hs, bw, mw);
+    for i = 1:nsn
         Vtold(i,:) = V(sn(i),:);
     end;
 end;
@@ -161,10 +129,10 @@ for i = 1:nsn
     for tp = 1:size(NNLt{1,i},2)
         pt = sn(i);
         tri = NNLt{1,i}(tp);
-        [cc, ub, vb, wb] = closestPointTriangle(V(pt,:), V(Fb(tri,1),:), V(Fb(tri,2),:), V(Fb(tri,3),:));
+        [cc, ub, vb, wb] = closestPointTriangle(V(pt,:), V(Fb(tri,1),:), V(Fb(tri,2),:), V(Fb(tri,3),:), ub, vb, wb);
         cc = cc - V(pt,:);
         rc = length(cc);
-        if rc < hc && gr(pt) + gr(Fb(tri,1)) > 0.0
+        if (rc < hc) && (gr(pt) + gr(Fb(tri,1)) > 0.0)
             cc = cc/norm(cc);
             Ntri = cross(V(Fb(tri,2),:) - V(Fb(tri,1),:), V(Fb(tri,3),:) - V(Fb(tri,1),:));
             Ntri = Ntri/norm(Ntri);
@@ -180,12 +148,17 @@ for i = 1:nsn
     end;
 end;
 
+Ftt = Ft;
+
 %% Volume of initial tetraedron and deformed tetraedron
 Ar = cell(1,size(El,1));
 A = cell(1,size(El,1));
 V_d = V; 
-Vn0 = zeros(1,size(V,1));
-Vn = zeros(1,size(V,1)); 
+parfor i = 1:size(V,1)
+    Vn0(i) = 0.0;
+    Vn(i) = 0.0;
+end;
+
 for i = 1:size(El,1)
     % Undeformed
     xr1 = V0(El(i,2),:)-V0(El(i,1),:);
@@ -271,7 +244,7 @@ for i = 1:size(El,1)
     
     % Calculate the volumetric strain energy density and elastic force
     [ll1,ll2,ll3] = EV(B{i});
-    if ll3>=eps*eps && J{i}>0.0 % No need for SVD
+    if (ll3>=eps*eps) && (J{i}>0.0) % No need for SVD
 %     if J{i}>0.0
         T{i} = (B{i}-eye(3)*trace(B{i})/3.0)*mu(i)/(J{i}*(J{i}^(2.0/3.0))) + eye(3)*K*(Ja(i)-1.0);
         P{i} = T{i}*(inv((F{i})'))*J{i}; %fo,r calculating the forces
@@ -283,6 +256,8 @@ for i = 1:size(El,1)
         D = (F{i})'*F{i};
 %         D(isnan(D) | isinf(D))=1;
         [U,S] = eig(D);
+%         d = zeros(1,3);
+%         [U,S] = Eigensystem(D,d);
         l1 = sqrt(S(1,1));
         l2 = sqrt(S(2,2));
         l3 = sqrt(S(3,3));
@@ -334,18 +309,26 @@ for i = 1:size(El,1)
     G{i} = eye(3)+(eye(3)-[Ns(i,1)*Ns(i,1),Ns(i,1)*Ns(i,2),Ns(i,1)*Ns(i,3);Ns(i,2)*Ns(i,1),Ns(i,2)*Ns(i,2),Ns(i,2)*Ns(i,3);Ns(i,3)*Ns(i,1),Ns(i,3)*Ns(i,2), Ns(i,3)*Ns(i,3)])*at*gm(i);
 end;
 
+
 % Midplane
 mpy = -0.004;
 for i = 1:nsn 
     pt = sn(i);
-    if V0(pt,2) < mpy-0.5*a && V(pt,2) > mpy
+    if (V0(pt,2) < mpy-0.5*a) && (V(pt,2) > mpy)
         Ft(2,pt) = Ft(2,pt)-(mpy-V(pt,2))/hc*a*a*K;
     end;
-    if V0(pt,2) > mpy+0.5*a && V(pt,2) < mpy   
+    if (V0(pt,2) > mpy+0.5*a) && (V(pt,2) < mpy)   
         Ft(2,pt) = Ft(2,pt)-(mpy-V(pt,2))/hc*a*a*K;
     end;
 end;
-    
+
+parfor i = 1:size(V,1)
+    Ft(:,i) = Ft(:,i)-Vt(:,i)*gamma*Vn0(i);
+    Vt(:,i) = Vt(:,i)+Ft(:,i)/(Vn0(i)*rho)*dt;
+end;
+
+t=t+dt;
+
 % for i = 1:size(El,1)
 % %     T{i} = (B{i}-eye(3)*trace(B{i})/3.0)*mu(i)/(J{i}*(J{i}^(2.0/3.0))) + eye(3)*K*(Ja(i)-1.0);
 % %     P{i} = T{i}.*(inv((F{i})'))*J{i}; %for calculating the forces
@@ -358,4 +341,3 @@ end;
 
 % W = cell2mat(W);
 % W=ones(size(W));
-

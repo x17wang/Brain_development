@@ -1,6 +1,6 @@
-function [NNLt] = createNNLtriangle(V, Fb, sn, nsn, hs, bw, mw)
+function [NNLt] = createNNLtriangle(NNLt, V, Fb, sn, nsn, hs, bw, mw)
 
-NNLt = cell(1,nsn);
+% NNLt = cell(1,nsn);
 mx = max(1,int8(bw/mw));
 head(1,1:mx*mx*mx) = -1;
 list = zeros(1,size(Fb,1));
@@ -36,5 +36,6 @@ parfor i = 1:nsn
         end;
     end;
 end;
+          
           
           

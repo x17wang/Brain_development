@@ -1,4 +1,4 @@
-function [V_def]=runFEBio(V,El,E,v,density,t,modelName,bcPrescribeList,bcPrescribeMagnitude)
+function [V_def]=runFEBio(V,El,E,v,density,d,modelName,bcPrescribeList,bcPrescribeMagnitude)
 %% FEA control settings
 numTimeSteps=20; %Number of time steps desired
 max_refs=25; %Max reforms
@@ -17,8 +17,8 @@ febMatID = 1:size(El,1);
 % febMatID(CE==-2)=1;
 
 % Defining file names
-FEB_struct.run_filename=[modelName,'_',num2str(t),'.feb']; %FEB file name
-FEB_struct.run_logname=[modelName,'_',num2str(t),'.txt']; %FEBio log file name
+FEB_struct.run_filename=[modelName,'_',num2str(d),'.feb']; %FEB file name
+FEB_struct.run_logname=[modelName,'_',num2str(d),'.txt']; %FEBio log file name
 
 %Creating FEB_struct
 FEB_struct.Geometry.Nodes=V;
@@ -35,8 +35,8 @@ FEB_struct.Globals.Constants.Entries={298,8.314e-06,0};
 for i = 1:size(El,1)
     FEB_struct.Materials{i}.Type='neo-Hookean';
     FEB_struct.Materials{i}.Name=['tetra_mat_',num2str(i)];
-    FEB_struct.Materials{i}.Properties={'density','E','v'};
-    FEB_struct.Materials{i}.Values={density(i),E(i),v(i)};
+    FEB_struct.Materials{i}.Properties={'E','v'};
+    FEB_struct.Materials{i}.Values={E(i),v(i)};
 %             FEB_struct.Materials{i}.PropAttrName{1}='lc';
 %             FEB_struct.Materials{i}.PropAttrVal{1}=i;
 %             FEB_struct.Materials{i}.PropAttrVal=i;
@@ -46,10 +46,10 @@ end
 FEB_struct.Control.AnalysisType='dynamic';
 FEB_struct.Control.Properties={'time_steps','step_size',...
     'max_refs','max_ups',...
-    'dtol','etol','rtol','lstol','min_residual'};
+    'dtol','etol','rtol','lstol'};
 FEB_struct.Control.Values={numTimeSteps,1/numTimeSteps,...  
     max_refs,max_ups,...
-    0.001,0.01,0,0.9,0};
+    0.001,0.01,0,0.9};
 FEB_struct.Control.TimeStepperProperties={'dtmin','dtmax','max_retries','opt_iter'};
 FEB_struct.Control.TimeStepperValues={dtmin,dtmax,max_retries,opt_iter};
 %         FEB_struct.Control=FEB_struct.Step{s}.Control;
@@ -80,7 +80,7 @@ FEB_struct.Loads.Nodal_load{3}.nodeScale=bcPrescribeMagnitude(:,3);%Load curves
 %Load curves
 FEB_struct.LoadData.LoadCurves.id=1;
 FEB_struct.LoadData.LoadCurves.type={'linear'};
-FEB_struct.LoadData.LoadCurves.loadPoints={[0 0;1 1];};
+FEB_struct.LoadData.LoadCurves.loadPoints={[0 0;1 1]};
 
 % Load curvesdeset
 % for i = 1:size(El,1)

@@ -56,21 +56,24 @@ mw = 8.0*a;
 hs = 0.6*a; %Thickness of proximity skin
 hc = 0.2*a; %Thickness of repulsive skin
 kc = 10.0*K; %Contact stiffness
+nf = size(Fb,1);
 parfor i = 1:nsn
     maxDist = max(maxDist, length(V(sn(i),:) - Vtold(i,:)));
 end;
 if maxDist > 0.5*(hs-hc)
-    [NNLt] = createNNLtriangle(NNLt, V, Fb, sn, nsn, hs, bw, mw);
+    [NNLt] = createNNLtriangle(NNLt, V', Fb', sn, nsn, nf, hs, bw, mw);
     for i = 1:nsn
         Vtold(i,:) = V(sn(i),:);
     end;
 end;
 
-Ft = zeros(3,max(El(:)));
+Ft=zeros(3,size(V,1));
+
 for i = 1:nsn
-    for tp = 1:size(NNLt{1,i},2)
+%     if size(NNLt{i},2) >= 1
+    for tp = 1:size(NNLt{i},2)
         pt = sn(i);
-        tri = NNLt{1,i}(tp);
+        tri = NNLt{i}(tp)+1;
         [cc, ub, vb, wb] = closestPointTriangle(V(pt,:), V(Fb(tri,1),:), V(Fb(tri,2),:), V(Fb(tri,3),:), ub, vb, wb);
         cc = cc - V(pt,:);
         rc = length(cc);
@@ -88,6 +91,7 @@ for i = 1:nsn
             Ft(:,pt) = Ft(:,pt)+fn';
         end;
     end;
+%     end;
 end;
 
 Ftt = Ft;
@@ -193,7 +197,7 @@ for i = 1:size(El,1)
 %         W(i) = 0.5*mu(i)*(trace(B{i})/J{i}^(2.0/3.0)-3.0)+0.5*K*((J1(i)-1.0)*(J1(i)-1.0)+(J2(i)-1.0)*(J2(i)-1.0)+(J3(i)-1.0)*(J3(i)-1.0)+(J4(i)-1.0)*(J4(i)-1.0))*0.25;
         W_T(i) = 0.5*E(i)/(2*(1+v(i)))*(trace(B{i})/J{i}^(2.0/3.0)-3.0)+0.5*E(i)/(3*(1-2*v(i)))*((J1(i)-1.0)*(J1(i)-1.0)+(J2(i)-1.0)*(J2(i)-1.0)+(J3(i)-1.0)*(J3(i)-1.0)+(J4(i)-1.0)*(J4(i)-1.0))*0.25;
 %         W(i) = mu(i)*(((trace(B{i}) - 3)/2) - log(J{i})) + lam(i)*((log(J{i}))^2)/2;
-        W(i) = 1;
+        W(i) = rho;
     else % need SVD
         D = (F{i})'*F{i};
 %         D(isnan(D) | isinf(D))=1;
@@ -237,7 +241,7 @@ for i = 1:size(El,1)
         Pd(2,2) = mu(i)/3.0*(-eps*eps/l2 + 2.0*l2 - l3*l3/l2)/pow23 + mu(i)/9.0*(-4.0*eps/l2 - 4.0/eps*l2 + 2.0/eps/l2*l3*l3)/pow23*(l1-eps) + K*(Ja(i)-1.0)*l1*l3;
         Pd(3,3) = mu(i)/3.0*(-eps*eps/l3 - l2*l2/l3 + 2.0*l3)/pow23 + mu(i)/9.0*(-4.0*eps/l3 + 2.0/eps*l2*l2/l3 - 4.0/eps*l3)/pow23*(l1-eps) + K*(Ja(i)-1.0)*l1*l2;
 %         W(i) = 0.5*mu(i)*((eps*eps + l2*l2 + l3*l3)/pow23 - 3.0) + mu(i)/3.0*(2.0*eps - l2*l2/eps - l3*l3/eps)/pow23*(l1-eps) + 0.5*k*(l1-eps)*(l1-eps) + 0.5*K*((J1(i)-1.0)*(J1(i)-1.0) + (J2(i)-1.0)*(J2(i)-1.0) + (J3(i)-1.0)*(J3(i)-1.0) + (J4(i)-1.0)*(J4(i)-1.0))/4.0;
-        W(i)= 1;
+        W(i)= rho;
         P{i} = U1*(Pd*U');
     end;
     

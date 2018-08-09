@@ -1,12 +1,12 @@
-function [V_def]=runFEBio(V,El,E,v,density,d,modelName,bcPrescribeList,bcPrescribeMagnitude)
+function [V_def]=runFEBio(V,El,E,v,density,d,modelName,bcPrescribeList,bcPrescribeMagnitude,dtt)
 %% FEA control settings
-numTimeSteps=20; %Number of time steps desired
+numTimeSteps=200; %Number of time steps desired
 max_refs=25; %Max reforms
 max_ups=0; %Set to zero to use full-Newton iterations per time step
-opt_iter=100; %Optimum number of iterations
-max_retries=25; %Maximum number of retries
-dtmin=0.001; %Minimum time step size
-dtmax=0.01; %Maximum time step size
+opt_iter=10; %Optimum number of iterations
+max_retries=5; %Maximum number of retries
+dtmin=(1/numTimeSteps)/100; %Minimum time step size
+dtmax=1/numTimeSteps;  %Maximum time step size
 
 %% CONSTRUCTING FEB MODEL
 FEB_struct.febio_spec.version='2.0';
@@ -35,8 +35,8 @@ FEB_struct.Globals.Constants.Entries={298,8.314e-06,0};
 for i = 1:size(El,1)
     FEB_struct.Materials{i}.Type='neo-Hookean';
     FEB_struct.Materials{i}.Name=['tetra_mat_',num2str(i)];
-    FEB_struct.Materials{i}.Properties={'E','v'};
-    FEB_struct.Materials{i}.Values={E(i),v(i)};
+    FEB_struct.Materials{i}.Properties={'E','v','density'};
+    FEB_struct.Materials{i}.Values={E(i),v(i),density(i)};
 %             FEB_struct.Materials{i}.PropAttrName{1}='lc';
 %             FEB_struct.Materials{i}.PropAttrVal{1}=i;
 %             FEB_struct.Materials{i}.PropAttrVal=i;
@@ -47,11 +47,15 @@ FEB_struct.Control.AnalysisType='dynamic';
 FEB_struct.Control.Properties={'time_steps','step_size',...
     'max_refs','max_ups',...
     'dtol','etol','rtol','lstol'};
-FEB_struct.Control.Values={numTimeSteps,1/numTimeSteps,...  
+FEB_struct.Control.Values={numTimeSteps,dtt,...  
     max_refs,max_ups,...
     0.001,0.01,0,0.9};
 FEB_struct.Control.TimeStepperProperties={'dtmin','dtmax','max_retries','opt_iter'};
 FEB_struct.Control.TimeStepperValues={dtmin,dtmax,max_retries,opt_iter};
+
+% for i = 2:5000
+%     FEB_struct.Step{i+1}.Control=FEB_struct.Step{1}.Control;
+% end;
 %         FEB_struct.Control=FEB_struct.Step{s}.Control;
 
 %Defining node sets
@@ -77,10 +81,14 @@ FEB_struct.Loads.Nodal_load{3}.lc=1;
 FEB_struct.Loads.Nodal_load{3}.Set=bcPrescribeList;
 FEB_struct.Loads.Nodal_load{3}.nodeScale=bcPrescribeMagnitude(:,3);%Load curves
 
+% for i = 2:5000
+%     FEB_struct.Step{i}.Loads=FEB_struct.Step{1}.Loads;
+% end;
+
 %Load curves
 FEB_struct.LoadData.LoadCurves.id=1;
 FEB_struct.LoadData.LoadCurves.type={'linear'};
-FEB_struct.LoadData.LoadCurves.loadPoints={[0 0;1 1]};
+FEB_struct.LoadData.LoadCurves.loadPoints={[0 1;dtt*numTimeSteps 1]};
 
 % Load curvesdeset
 % for i = 1:size(El,1)
@@ -95,9 +103,10 @@ FEB_struct.Output.VarTypes={'displacement','stress','relative volume','shell thi
 %Specify log file output
 run_disp_output_name=[FEB_struct.run_filename(1:end-4),'_node_out.txt'];
 run_force_output_name=[FEB_struct.run_filename(1:end-4),'_force_out.txt'];
-FEB_struct.run_output_names={run_disp_output_name,run_force_output_name};
-FEB_struct.output_types={'node_data','node_data'};
-FEB_struct.data_types={'ux;uy;uz','Rx;Ry;Rz'};
+run_velo_output_name=[FEB_struct.run_filename(1:end-4),'_velocity_out.txt'];
+FEB_struct.run_output_names={run_disp_output_name,run_force_output_name,run_velo_output_name};
+FEB_struct.output_types={'node_data','node_data','node_data'};
+FEB_struct.data_types={'ux;uy;uz','Rx;Ry;Rz','vx;vy;vz'};
 
 %% SAVING .FEB FILE
 

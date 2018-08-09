@@ -14,7 +14,7 @@ edgeWidth=1.5;
 filePath=mfilename('fullpath');
 savePath=fullfile(fileparts(fileparts(filePath)),'GibbonCode','data','temp');
 % modelName=fullfile(savePath,'sphere_new');
-modelName=fullfile(savePath,'sphere7');
+modelName=fullfile(savePath,'sphere5');
 
 % build a sphere surface
 % r1=1; %Outer sphere radius
@@ -69,7 +69,7 @@ modelName=fullfile(savePath,'sphere7');
 % defaultFolder = fileparts(fileparts(mfilename('fullpath')));
 % pathName=fullfile(defaultFolder,'GibbonCode','data','STL');
 % fileName=fullfile(pathName,'brain_decimated.stl');
-[A] = textread('/home/xiaoyu/Desktop/MATLAB/GibbonCode/data/MESH/sphere7.mesh');
+[A] = textread('/home/x17wang/Bureau/MATLAB/GibbonCode/data/MESH/sphere5.mesh');
 
 V = A(2:A(1,1)+1,1:3);
 El = A(A(1,1)+3:A(A(1,1)+2,1)+A(1,1)+2,2:5);
@@ -461,10 +461,11 @@ end
 bcPrescribeList=[1:size(V,1)]';
 
 %% loop for iterations of matlab and steps of FEBio
-p=1;  % total time of deformation
-n=3;
-t=-0.25;
-dt=0.050*sqrt(0.0025*0.01*0.01/5.0); %time step size
+% p=1;  % total time of deformation
+n=12; %number of iterations for calculating the forces
+t=-0.25; %current time
+dt=2000*0.050*sqrt(0.0025*0.01*0.01/5.0); %time step size for matlab
+dtt=10*0.050*sqrt(0.0025*0.01*0.01/5.0); %time step size for FEBio
 % dt=1/n;
 % n=round(1/dt); % number of time step 
 % dt=1/n; %time step size
@@ -500,7 +501,7 @@ for i = 1:n
 %     % tetramesh(El,V);
 %     hold on;
 %     for i = 1:size(El,1) 
-%         quiver3(C(i,1),C(i,2),C(i,3),G{i}(1,1),G{i}(1,2),G{i}(1,3),2,'linewidth',4);
+%      NNLt   quiver3(C(i,1),C(i,2),C(i,3),G{i}(1,1),G{i}(1,2),G{i}(1,3),2,'linewidth',4);
 %         quiver3(C(i,1),C(i,2),C(i,3),G{i}(2,1),G{i}(2,2),G{i}(2,3),2,'linewidth',4);
 %         quiver3(C(i,1),C(i,2),C(i,3),G{i}(3,1),G{i}(3,2),G{i}(3,3),2,'linewidth',4);
 %     end;
@@ -521,6 +522,6 @@ for i = 1:n
 %     bcPrescribeMagnitude = forceMagnitude(ones(1,numel(bcPrescribeList)),:);
         bcPrescribeMagnitude(j,:)=forceMagnitude(:);
     end
-    [V]=runFEBio(V,El,E,v,W,d,modelName,bcPrescribeList,bcPrescribeMagnitude);
+    [V]=runFEBio(V,El,E,v,W,d,modelName,bcPrescribeList,bcPrescribeMagnitude,dtt);
     d=d+1;
 end
